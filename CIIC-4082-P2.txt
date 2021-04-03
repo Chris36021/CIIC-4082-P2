@@ -1,0 +1,111 @@
+#include "msp430.h"                     ; #define controlled include file
+
+        NAME    main                    ; module name
+
+        PUBLIC  main                    ; make the main label visible
+                                        ; outside this module
+        ORG     0FFFEh
+        DC16    init                    ; set reset vector to 'init' label
+        ORG     0x01C00                 ; Start of RAM        ORG     1C00
+
+
+        RSEG    CSTACK                    ; pre-declaration of segment
+        RSEG    CODE                      ; place program in 'CODE' segment
+
+
+; This is an extension of the previous subroutine 
+init:   MOV     #SFE(CSTACK), SP          ; set up stack
+
+main:   NOP                               ; main program
+        MOV.W   #WDTPW+WDTHOLD,&WDTCTL    ; Stop watchdog timer
+
+        mov.w   #0xFFFF,&LCDCPCTL0        ;Enable LCD segments 0-21; 26-43
+        mov.w   #0xFC3F,&LCDCPCTL1
+        mov.w   #0x0FFF,&LCDCPCTL2
+        
+        mov.w   #0,R9                    ; Temp input number                  
+        mov.w   #0,R10                   ; First input number
+        mov.w   #0,R11                   ; Second input number
+        mov.w   #1,R12                   ; Mult. Counter (start at 1)
+        mov.w   #0,R13                   ; Flag -> change if a number has been added
+
+SetupP1:
+        bic.b   #0xFF,&P1SEL0            ; Set PxSel0 and PxSel1 to digital I/O
+        bic.b   #0xFF,&P1SEL1            ; Digital I/O is the default
+        bic.b   #0xFF,&P9SEL0
+        bic.b   #0xFF,&P9SEL1
+        
+        
+        mov.b   #11111001B,&P1DIR       ; Set P1.1 and P1.2 for input and all
+                                        ; other P1 pins for output
+
+        bis.b   #0xFF,&P9DIR            ; Set all P9 pins for output
+
+        mov.b   #00000110B,&P1REN       ; Activate P1.1 and P1.2 programable
+                                        ; pull-up/pull-down resistors
+        bis.b   #00000110B,&P1OUT       ; Set resistors for P1.1 and P1.2 as
+                                        ; as pull-down
+
+UnlockGPIO:                             ; Disable de GPIO power-on default
+        bic.w   #LOCKLPM5,&PM5CTL0      ; high-impedance mode to activade
+                                        ; previously configured port settings
+        mov.w   #0x041e,&LCDCCTL0
+        mov.w   #0x0208,&LCDCVCTL
+        mov.w   #0x8000,LCDCCPCTL
+        mov.w   #2,&LCDCMEMCTL
+        
+        ;Turn LCD on
+        Bis.w   #1,&LCDCCTL0
+        
+Mainloop:
+        ;call    #option
+        call     #reads
+        ;call    #log
+        jmp     fin
+        
+option:
+      mov.b     #0xFC,&0xA29                    ;O
+
+      mov.b     #0xCF,&0xA25                    ;P
+
+      mov.b     #0x80,&0xA23                    ;T
+      mov.b     #0x50,&0xA24
+      
+      mov.b     #0x90,&0xA32                    ;I
+      mov.b     #0x50,&0xA33
+      
+      mov.b     #0xFC,&0xA2E                    ;O
+
+      mov.b     #0x6C,&0xA27                    ;N
+      mov.b     #0x82,&0xA28                    
+      
+log:
+      mov.b     #0x1C,&0xA29                    ;L
+
+      mov.b     #0xFC,&0xA25                    ;O
+
+      mov.b     #0xBD,&0xA23                    ;G
+
+      jmp       fin
+      
+reads:
+      mov.b     #0xCF,&0xA29                    ;R
+      mov.b     #0x02,&0xA2A
+
+      mov.b     #0x9F,&0xA25                    ;E
+
+      mov.b     #0xEF,&0xA23                    ;A
+      
+      mov.b     #0xF0,&0xA32                    ;D
+      mov.b     #0x50,&0xA33
+      jmp       fin
+      
+
+    
+      
+fin: 
+     ret
+     jmp        $
+     nop
+     end
+      
