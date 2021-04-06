@@ -21,25 +21,19 @@
 options  dw     option, log, reads
 opIndex  dw     0  
 
+batteryH  DB    0x10, 0x30, 0x30, 0x70, 0x70, 0xF0, 0xF0, 0xF0  ;High Bytes for battery 
+batteryL  DB    0x10, 0x10, 0x30, 0x30, 0x70, 0x70, 0xF0, 0xF0  ;Low Bytes for battery
+
 ; This is an extension of the previous subroutine 
 init:   MOV     #SFE(CSTACK), SP          ; set up stack
 
 main:   NOP                             ; main program
         MOV.W   #WDTPW+WDTHOLD,&WDTCTL  ; Stop watchdog timer
 
-        bic.b   #0xFF,&P1SEL0           ; Set PxSel0 and PxSel1 to digital I/O
-        bic.b   #0xFF,&P1SEL1           ; Digital I/O is the default
-        bic.b   #0xFF,&P9SEL0
-        bic.b   #0xFF,&P9SEL1
-        
         mov.w   #0xFFFF,&LCDCPCTL0        ;Enable LCD segments 0-21; 26-43
         mov.w   #0xFC3F,&LCDCPCTL1
         mov.w   #0x0FFF,&LCDCPCTL2
 
-        mov.b   #11111001B,&P1DIR       ; Set P1.1 and P1.2 for input and all
-                                        ; other P1 pins for output
-
-        bis.b   #0xFF,&P9DIR            ; Set all P9 pins for output
 
         bic.b   #00000001b, &P1OUT      ; Turn off red and green LEDs
         bic.b   #10000000b, &P9OUT
@@ -50,6 +44,10 @@ main:   NOP                             ; main program
         bis.b   #00000110b, &P1IE       ; Enable interrupt at P1.1 & 2
         bis.b   #00000110b, &P1IES      ; Set interrupt on high-to-low 
                                         ; transition of P1.1 & 2
+
+        MOV.B   #0,R4
+        
+                
 SetupP1:
         bic.b   #0xFF,&P1SEL0            ; Set PxSel0 and PxSel1 to digital I/O
         bic.b   #0xFF,&P1SEL1            ; Digital I/O is the default
@@ -150,7 +148,31 @@ reads:
       mov.b     #0xF0,&0xA32                    ;D
       mov.b     #0x50,&0xA33
       ret
-      
+   
+;Objetivo: Prender las barras de la bateria en el LCD
+;Precondiciones: El registro R4 contiene la posicion del LCD a ser encendido (bateria)
+;Postcondiciones: 
+;Autor: 
+;Fecha: 
+loadBattery:
+        CMP     #6, R4
+        jeq     resetBattery
+        INC     R4
+        mov.b   batteryH(R4), &0x0a31
+        mov.b   batteryL(R4), &0x0a2D
+        jmp     finI
+
+;Objetivo: Reiniciar las barras de la bateria en el LCD
+;Precondiciones: El registro R4 contiene la posicion del LCD a ser encendido (bateria)
+;Postcondiciones: 
+;Autor: 
+;Fecha: 
+resetBattery:
+        mov     #0, R4
+        mov.b   batteryH(R4), &0x0a31
+        mov.b   batteryL(R4), &0x0a2D
+        jmp     finI
+ 
 nextOp:
         incd    R5
         cmp     #6,R5
@@ -196,6 +218,7 @@ PORT1_ISR
 ;Fecha: 
 leftButton:
         bic.b   #00000010b, &P1IFG      ; Clear interrupt flag and check
+        jmp     loadBattery
         jmp     finI
 
 ;Objetivo: Llamar subrutina indicada al presionar S2
@@ -209,8 +232,7 @@ rightButton:
        
        jmp      finI        
         
-
-        
+     
 finI:   ;incd    R5               ; Increment the pushes counter
 
         reti                            ; Return from interrupt
