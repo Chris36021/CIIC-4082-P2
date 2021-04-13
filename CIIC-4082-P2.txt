@@ -18,7 +18,7 @@
         RSEG    CSTACK                    ; pre-declaration of segment
         RSEG    CODE                      ; place program in 'CODE' segment
 
-options  dw     option, log, reads
+options  dw     option, reads, log
 opIndex  dw     0  
 
 ; This is an extension of the previous subroutine 
