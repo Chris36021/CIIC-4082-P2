@@ -243,12 +243,22 @@ PORT1_ISR
 ;Postcondiciones: 
 ;Autor: 
 ;Fecha: 
+
+        
 leftButton:
         bic.b   #00000010b, &P1IFG      ; Clear interrupt flag and check
-        ;jmp     loadBattery
-        jmp     buttonCount
-        
+        ;VERIFICAR NIVEL
+        call #state1              ;Call state1 if the state level is one  GABRIELA
+        ;jmp     buttonCount
         jmp     finI
+        
+state1:                                    ;GABRIELA
+     call #clear
+     cmp.b #4, R5   ;READ
+     jeq  loadBattery
+     ;cmp.b #2,R5    ;LOG
+    ; jeq  register
+     reti
 
 
 ;Objetivo: Llamar subrutina indicada al presionar S2
@@ -258,11 +268,10 @@ leftButton:
 ;Fecha: 
 rightButton:
        bic.b   #00000100b,&P1IFG        ; Clear interrupt flag and check 
-       jmp      saveResults
-       ;jmp     nextOp
-       
+       ;jmp      saveResults
+       jmp     nextOp
        jmp      finI     
-
+       
 
 saveResults:
         mov.w   &0x19FC, &0x19FA
@@ -282,6 +291,27 @@ pressCounter:
         
         inc     R6
         ;jmp     buttonCount
+
+watch:                                            ;GABRIELA
+    call   #clear
+    mov.b #00001000B,&0x0A22   ; watch sign
+    reti 
+    
+      
+save:              ;SAVE   ;GABRIELA
+
+         call #clear
+         
+         mov.b     #10110111B,&0x0A29              ;S
+
+         mov.b     #0xEF,&0xA25                   ;A
+
+         mov.b    #00001100B,&0x0A23
+         mov.b    #00101000B,&0x0A24              ;V
+                  
+         mov.b     #0x9F,&0x0A32                 ;E
+
+         reti
    
         
      
