@@ -38,7 +38,7 @@ batteryL  DB    0x10, 0x10, 0x30, 0x30, 0x70, 0x70, 0xF0, 0xF0  ;Low Bytes for b
 disp    dw      0xA29,0xA25,0xA23,0xA29,0xA25,0xA23
 Final   dw      0xA29,0xA25,0xA23,0xA32,0xA2E,0xA27
 
-sublevel  dw   0
+level   dw      0
 
 ; This is an extension of the previous subroutine 
 init:   MOV     #SFE(CSTACK), SP          ; set up stack
@@ -52,6 +52,7 @@ main:   NOP                             ; main program
 
         mov     #0, intsCounter         ; Clear intsCounter
         mov     #0, batteryCounter
+        mov     #0, level
 
         bic.b   #00000001b, &P1OUT      ; Turn off red and green LEDs
         bic.b   #10000000b, &P9OUT
@@ -188,6 +189,7 @@ reads:
 save:              ;SAVE   ;GABRIELA
 
       call      #clear
+      mov       #13,level
        
       mov.b     #10110111B,&0x0A29             ;S
 
@@ -198,24 +200,25 @@ save:              ;SAVE   ;GABRIELA
                 
       mov.b     #0x9F,&0x0A32                  ;E
 
-      ret
+      reti
    
 BPM:    
-        call      #clear  
-        mov.b     #0xF1,&0xA32                    ;B
-        mov.b     #0x50,&0xA33     
+      call      #clear  
+      mov.b     #0xF1,&0xA32                    ;B
+      mov.b     #0x50,&0xA33     
 
-        mov.b     #0xCF,&0xA2E                    ;P
-  
-        mov.b     #0x6C,&0xA27                    ;M
-        mov.b     #0xA0,&0xA28
+      mov.b     #0xCF,&0xA2E                    ;P
 
-        ret
+      mov.b     #0x6C,&0xA27                    ;M
+      mov.b     #0xA0,&0xA28
+
+      ret
    
 watch:                                            ;GABRIELA
-    call   #clear
-    mov.b #00001000B,&0x0A22   ; watch sign
-    reti 
+      call        #clear
+      mov         #12, level
+      mov.b       #00001000B,&0x0A22   ; watch sign
+      reti 
    
 TIMER_A0_ISR:
       
@@ -236,7 +239,7 @@ noBattery:
 checkBPMFinished:
         cmp     #35, batteryCounter
         jne     loadBattery  
-        jeq     endStageOne
+        jeq     endReadStage
         reti      
 
 ;Objetivo: Prender las barras de la bateria en el LCD
@@ -278,16 +281,11 @@ clear:
         Bis.w   #1,&LCDCCTL0
         ret
         
-buttonCount:
-        inc     R6
-        bic.b   #00000110b, &P1IFG
-        ret
-        
 waitingTime:
         dec.w   R7
         cmp.w   #0,R7    
         jnz     waitingTime
-        mov.b   &P1IN,R4
+        ;mov.b   &P1IN,R4
         mov.w   #65535,R7
         ret
         
@@ -329,22 +327,44 @@ PORT1_ISR
 ;Fecha: 
 leftButton:
         bic.b   #00000010b, &P1IFG      ; Clear interrupt flag and check
-
-        call     #buttonCount
         
-        ;readtages
-        cmp.b   #2,R5                   ; LOG
-        JEQ     readStages
-        cmp.b   #4,R5                   ; READ
-        JEQ     logStages
-        
+        cmp     #0,level        ; Select between read / log
+        jeq     selectReadLog
+        cmp     #11,level       ; battery / heart / BPM stage
+        jeq     pressCounter
+        cmp     #13,level       ; "Save" level
+        JEQ     saveResults
+        cmp     #21,level       ; Loading last 3 logs
+        JEQ     loadLog
+             
         jmp     finI
+      
+;Objetivo: Llamar subrutina indicada al presionar S2
+;Precondiciones: 
+;Postcondiciones: 
+;Autor: 
+;Fecha: 
+rightButton:
+       bic.b   #00000100b,&P1IFG        ; Clear interrupt flag and check 
+
+       cmp      #0,level                ; Move through operations
+       jeq      nextOp
+       cmp      #12,level               ; watch level
+       jeq      save
+       cmp      #13,level               ; "Save" level
+       jeq      backToOption
        
-logStages:
-        cmp.w   #1,R6
-        jz      loadLog
-       
+       jmp      finI 
+      
+selectReadLog:
+        cmp.b   #2,R5                   ; LOG
+        JEQ     loadReadStage
+        cmp.b   #4,R5                   ; READ
+        JEQ     loadLog
+        reti
+           
 loadLog:
+        mov     #21,level
         cmp     #0x19FF,R11
         jz      displayFirst
         cmp     #0x19FC,R11
@@ -354,34 +374,18 @@ loadLog:
         cmp     #0x19F8,R11
         jz      backToOption
         reti
-       
-readStages:
-        cmp.w   #1,R6
-        jz      loadStageOne
-        ret
 
-loadStageOne:
+loadReadStage:
+        mov     #11,level       ; battery / heart / BPM stage
         mov     #TASSEL_2+MC_1+ID_3, &TA0CTL  ;Start timer
         call    #clear
         jmp     loadBattery
 
-endStageOne:
+endReadStage:
         mov     #TASSEL_2+MC_0+ID_3, &TA0CTL  ;Stop timer
         call    #clear
-        call    #watch
-        reti
-
-;Objetivo: Llamar subrutina indicada al presionar S2
-;Precondiciones: 
-;Postcondiciones: 
-;Autor: 
-;Fecha: 
-rightButton:
-       bic.b   #00000100b,&P1IFG        ; Clear interrupt flag and check 
-       ;jmp      saveResults
-       jmp     nextOp
-       
-       jmp      finI     
+        JMP     watch
+        reti    
 
 
 saveResults:
@@ -389,7 +393,7 @@ saveResults:
         mov.w   &0x19FF, &0x19FC
         mov.w   R6, &0x19FF
         clr     R6
-        jmp     finI
+        jmp     backToOption
         
 optionSelected:
         mov.w   #1,R8
@@ -411,6 +415,7 @@ displayThird:
         jmp     pushAndCallDisplay
         
 backToOption:
+        mov     #0,level
         mov.w   #0x19FF,R11
         clr     R5
         call    options(R5)
@@ -426,7 +431,6 @@ pressCounter:
         bic.b   #00000010b, &P1IFG      ; Clear interrupt flag and check 
         
         inc     R6
-        ;jmp     buttonCount
    
   
 ;Objetivo:Las proximas subrutinas se utilizaron para usar el stack con los remainders del 
