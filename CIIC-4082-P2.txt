@@ -47,6 +47,7 @@ count           dw      0
 multiplier      dw      0
 
 
+
 ; This is an extension of the previous subroutine 
 init:   MOV     #SFE(CSTACK), SP          ; set up stack
 
@@ -238,23 +239,48 @@ BPM:
 watch: 
       call        #clear
       mov         #12, level
-      mov.b       #00001000B,&0x0A22   ; watch sign
+      mov.b       #00001000B,&0x0A22    ; watch sign
       reti 
-      
-      
+   
+checkDivisionNeeded:
+        MOV     #0,R9
+        cmp     #21, batteryCounter     ; BPM at 18s
+        jeq     divide10
+        cmp     #28, batteryCounter     ; BPM at 24s
+        jeq     divide2
+        MOV     R6,R9                              ; Store result in R9
+        JMP     showresultBPM 
+        RET
+              
+divide10:
+        SUB.W   #10,R6                          ;Subtract denominator from numerator
+        JN      setUpDivDisplay                 ;If it's negative, end the division operation
+        INC     R9                              ;Increase result
+        JMP     divide10                         ;Loop again
+
+divide2:
+        SUB.W   #2,R6                           ;Subtract denominator from numerator
+        JN      setUpDivDisplay                 ;If it's negative, end the division operation
+        INC     R9                              ;Increase result
+        JMP     divide2   
+
+setUpDivDisplay:
+        MOV     R9,R6
+        JMP     showresultBPM
+               
 ;Objetivo: Multiplicar el valor en pressed al resultado 10 veces
 ;Precondiciones: pressed contiene el número a ser multiplicado, R6 contiene el resultado, count actúa como counter de 1-10
 ;Postcondiciones: R6 tendrá el resultado con cero a la derecha
 ;Autor: María Cordero
 ;Fecha: 
 calculateBPM:
-        Add     pressed,R6                   ; Add temp value to R6 repeated 10 times
+        Add     pressed,R6                         ; Add temp value to R6 repeated 10 times
         INC     count                      
-        CMP     multiplier, count                  ; If R4 reaches 10, stop loop
-        JNE     calculateBPM
+        CMP     multiplier, count                  ; If count reaches multiplier, stop loop
+        JNE     calculateBPM                       ; loop again
         MOV     #1,count
-        MOV     R6,R9
-        call    #showresultBPM      
+        call    #checkDivisionNeeded   
+   
    
 TIMER_A0_ISR:
             
@@ -333,13 +359,14 @@ setUp12sBPM:
         mov     #5, multiplier
         jmp     calculateBPM
 setUp18sBPM:
-        mov     #3, multiplier
+        mov     #33, multiplier
+       ; mov     #10, divisor
         jmp     calculateBPM
 setUp24sBPM:
-        mov     #2, multiplier
+        mov     #5, multiplier
+       ; mov     #5, divisor
         jmp     calculateBPM
 setUp30sBPM:
-        ;mov     #TASSEL_2+MC_0+ID_3, &TA0CTL  ;Stop timer
         mov     #2, multiplier
         jmp     calculateBPM
 
