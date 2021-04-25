@@ -334,6 +334,7 @@ loadInitBattery:
 resetBattery:
         mov     #TASSEL_2+MC_0+ID_3, &TA1CTL  ;stop timer heart
         mov.b   #0x00,&0xA22
+        mov     #0,heartCounter
         mov     #0, R14
         mov.b   batteryH(R14), &0x0a31
         mov.b   batteryL(R14), &0x0a2D
