@@ -5,7 +5,7 @@
         PUBLIC  main                    ; make the main label visible
                                         ; outside this module
         ORG     0FFE8h                  ; vector for TIMER_A0
-        DC16    TIMER_A0_ISR            ; set vector for 'TIMER_A0_ISR' routine
+        DC16    checkBPMFinished        ; set vector for 'checkBPMFinished' routine
 
         ORG     0FFDEh
         DC16    pressHeart              ; set vector for 'pressHeart' routine
@@ -296,13 +296,6 @@ calculateBPM:
         MOV     #0,count
         call    #checkDivisionNeeded   
    
-   
-TIMER_A0_ISR:
-            
-      JMP      checkBPMFinished
-
-      jmp       finI   
-   
 ;Objetivo: Determinar si han transcurrido 30 segundos del comienzo de leer los BPM
 ;Precondiciones: batteryCounter contiene la cuenta de cuántas del total de índices que se ha iterado por el array de la batería
 ;Postcondiciones: La subrutina brincará a la próxima subrutina correspondiente dependiendo de el valor en batteryCounter
@@ -470,13 +463,6 @@ returnOp:
         call    #clear
         call    options(R5)
         jmp     finI
-        
-return:
-        ret
-       
-fin:
-        JMP $
-        NOP     
        
 ;Objetivo: Determinar qué botón (S1 o S2) fue presionado
 ;Precondiciones: Se detectó una interrupción en el puerto 1
@@ -783,9 +769,14 @@ selectReturn:
         CMP     #21,level
         JEQ     finI
         JNE     return     
+ 
+return:
+        ret
+       
+fin:
+        JMP $
+        NOP  
   
 finI:                                 
         reti                            ; Return from interrupt
         END
-
-
